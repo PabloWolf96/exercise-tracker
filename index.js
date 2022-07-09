@@ -35,11 +35,12 @@ app.post("/api/users/:id/exercises", async (req, res) => {
   }
   user.log.push({ description, duration, date });
   await user.save();
+  console.log(user.duration);
   res.json({
     username: user.username,
     _id: user._id,
     description,
-    duration: user.duration,
+    duration: +duration,
     date: date.toDateString(),
   });
 });

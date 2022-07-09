@@ -35,7 +35,6 @@ app.post("/api/users/:id/exercises", async (req, res) => {
   }
   user.log.push({ description, duration, date });
   await user.save();
-  console.log(user.duration);
   res.json({
     username: user.username,
     _id: user._id,
@@ -50,7 +49,7 @@ app.get("/api/users/:id/logs", async (req, res) => {
   if (!user) {
     res.status(404).json({ error: "user not found" });
   }
-  res.json({ ...user._doc, count: user.log.length });
+  res.json(user);
 });
 const listener = app.listen(process.env.PORT || 3000, () => {
   console.log("Your app is listening on port " + listener.address().port);

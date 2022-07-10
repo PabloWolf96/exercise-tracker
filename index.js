@@ -5,6 +5,7 @@ require("dotenv").config();
 const connectToDB = require("./config/db");
 connectToDB();
 const User = require("./models/user");
+const Exercise = require("./models/exercise");
 
 app.use(cors());
 app.use(express.urlencoded({ extended: false }));
@@ -31,25 +32,56 @@ app.post("/api/users/:id/exercises", async (req, res) => {
   }
   const user = await User.findById(id);
   if (!user) {
-    res.status(404).json({ error: "user not found" });
+    return res.status(404).json({ error: "user not found" });
   }
-  user.log.push({ description, duration, date });
-  await user.save();
-  res.json({
-    username: user.username,
-    _id: user._id,
+  const exercise = new Exercise({
+    userId: user._id,
     description,
-    duration: +duration,
-    date: date.toDateString(),
+    duration,
+    date,
+  });
+  await exercise.save();
+  res.json({
+    _id: user._id,
+    username: user.username,
+    description: exercise.description,
+    duration: exercise.duration,
+    date: exercise.date.toDateString(),
   });
 });
 app.get("/api/users/:id/logs", async (req, res) => {
   const { id } = req.params;
-  const user = await User.findById(id).select("-log._id -__v");
-  if (!user) {
-    res.status(404).json({ error: "user not found" });
+  const limit = +req.query.limit || undefined;
+  const { from, to } = req.query;
+  // from and to are in the format of "YYYY-MM-DD"
+  const match = /^\d{4}-\d{2}-\d{2}$/;
+  if (from && !match.test(from)) {
+    return res.status(400).json({ error: "invalid date format" });
   }
-  res.json(user);
+  if (to && !match.test(to)) {
+    return res.status(400).json({ error: "invalid date format" });
+  }
+  const user = await User.findById(id);
+  if (!user) {
+    return res.status(404).json({ error: "user not found" });
+  }
+  const query = Exercise.find({ userId: user._id });
+  if (from) {
+    query.where("date").gte(new Date(from));
+  }
+  if (to) {
+    query.where("date").lte(new Date(to));
+  }
+  if (limit) {
+    query.limit(limit);
+  }
+  const exercises = await query.select("-__v -_id -userId");
+  res.json({
+    _id: user._id,
+    username: user.username,
+    count: exercises.length,
+    log: exercises,
+  });
 });
 const listener = app.listen(process.env.PORT || 3000, () => {
   console.log("Your app is listening on port " + listener.address().port);
